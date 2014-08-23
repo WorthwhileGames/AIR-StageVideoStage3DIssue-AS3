@@ -138,6 +138,10 @@ package
 		
 		private function onMouseUp(ev:Event): void
 		{
+			var button:MovieClip = ev.target as MovieClip;
+			button.removeEventListener(MouseEvent.MOUSE_UP, onMouseUp);
+			removeChild(button);
+			
 			if (stage3D)
 			{
 				if (stage3D.visible)
