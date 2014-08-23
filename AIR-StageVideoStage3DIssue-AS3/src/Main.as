@@ -17,8 +17,22 @@ package
 	import flash.net.NetConnection;
 	import flash.net.NetStream;
 
-	// Make sure to test on a device to reproduce the issue:
-	//   Stage2D turns opaque/black when NetStream is disposed
+	/**
+	 *   A Tool to help troubleshoot an undesirable interaction between StageVideo and Stage3D 
+	 *   @author Andrew Rapo, www.WorthwhileGames.org
+	 *   https://github.com/WorthwhileGames/AIR-StageVideoStage3DIssue-AS3
+	 *
+	 * Make sure to test on a device to reproduce the issue:
+	 *   Stage2D turns opaque/black when NetStream is attached or disposed
+	 * Tap any blue circle to toggle Stage3D visibility on and off
+	 *   The blue circles should overlay transparently on the Stage3D scene (AIR logo)
+	 * Tap the green buttons from left to right to see the issue
+	 * Button1: Instantiates the NetStream - so far, so good
+	 * Button2: Attaches the NetStream to StageVideo - 2D stage goes opaque
+	 * Button3: Makes Stage3D invisible and plays a video - 2D stage behaves normally again
+	 * 	 Tap a blue circle to see normal 2D stage behavior
+	 * Button4: Disposes the NetStream - 2D stage goes opaque
+	 */
 	public class Main extends Sprite
 	{
 		[Embed(source="Default-Landscape.png")]
@@ -34,6 +48,11 @@ package
 		
 		private var stageVideoAvailable:Boolean = true;
 		private var stageVideo:StageVideo;
+		
+		private var button1:MovieClip;
+		private var button2:MovieClip;
+		private var button3:MovieClip;
+		private var button4:MovieClip;
 		
 		public function Main()
 		{
@@ -56,9 +75,41 @@ package
 				}
 			}
 			
+			button1 = new MovieClip();
+			button1.graphics.beginFill(0x00ff9c,1.0);
+			button1.graphics.drawRoundRect(10, 20, 200, 200, 6, 6);
+			addChild(button1);
+			button1.addEventListener(MouseEvent.MOUSE_UP, onSetupNetStream);
+			
+			button2 = new MovieClip();
+			button2.graphics.beginFill(0x00ff9c,1.0);
+			button2.graphics.drawRoundRect(220, 20, 200, 200, 6, 6);
+			addChild(button2);
+			button2.addEventListener(MouseEvent.MOUSE_UP, onAttachNetStream);
+			
+			button3 = new MovieClip();
+			button3.graphics.beginFill(0x00ff9c,1.0);
+			button3.graphics.drawRoundRect(430, 20, 200, 200, 6, 6);
+			addChild(button3);
+			button3.addEventListener(MouseEvent.MOUSE_UP, onPlayVideo);
+			
+			button4 = new MovieClip();
+			button4.graphics.beginFill(0x00ff9c,1.0);
+			button4.graphics.drawRoundRect(640, 20, 200, 200, 6, 6);
+			addChild(button4);
+			button4.addEventListener(MouseEvent.MOUSE_UP, onDisposeNetStream);
+			
 			stage3D = stage.stage3Ds[0];
 			stage3D.addEventListener(Event.CONTEXT3D_CREATE, onContextCreated);
 			stage3D.requestContext3D(Context3DRenderMode.AUTO);
+		}
+		
+		private function onEnterFrame(ev:Event): void
+		{
+			// Render the scene
+			context3D.clear(0.5, 0.5, 0.5);
+			sprite.render();
+			context3D.present();
 		}
 		
 		protected function onContextCreated(ev:Event): void
@@ -82,42 +133,37 @@ package
 			
 			addEventListener(MouseEvent.MOUSE_UP, onMouseUp);
 			
-			// Setup NetStream
-			nc = new NetConnection();
-			nc.connect(null);
-			ns =  new NetStream(nc);
 			
-			setupStageVideo();
 		}
 		
 		private function onMouseUp(ev:Event): void
 		{
-			if (stage3D.visible)
+			if (stage3D)
 			{
-				stage3D.visible = false;
-				var url:String = File.applicationDirectory.resolvePath("WwVideoClip_960x720.mp4").url;
-				ns.play(url);
-			}
-			else
-			{
-				stage3D.visible = true;
-				// On devices, Stage2D turns opaque/black when NetStream is disposed (2nd click)
-				ns.dispose();
+				if (stage3D.visible)
+				{
+					stage3D.visible = false;
+				}
+				else
+				{
+					stage3D.visible = true;
+					
+				}
 			}
 		}
 		
-		private function onEnterFrame(ev:Event): void
+		// Setting up Netstream does NOT cause the 2D stage to become opaque
+		private function onSetupNetStream(ev:Event): void
 		{
-			// Render the scene
-			context3D.clear(0.5, 0.5, 0.5);
-			sprite.render();
-			context3D.present();
-		}
-		
-		// Video
-		
-		private function setupStageVideo():void
-		{
+			button1.visible = false;
+			stage3D.visible = true;
+			ev.stopImmediatePropagation();
+			
+			nc = new NetConnection();
+			nc.connect(null);
+			ns =  new NetStream(nc);
+			
+			
 			ns.bufferTime = 2;
 			ns.addEventListener(NetStatusEvent.NET_STATUS, onNetStatus);
 			
@@ -125,13 +171,42 @@ package
 			ns.client = nsClientObject;
 			nsClientObject.onMetaData = onNSMetaData;
 			nsClientObject.onCuePoint = onNSCuePoint;
+		}
+		
+		// Attaching the NetStream to StageVideo DOES cause the 2D stage to become opaque
+		private function onAttachNetStream(ev:Event): void
+		{
+			button2.visible = false;
+			stage3D.visible = true;
+			ev.stopImmediatePropagation();
 			
 			if(stageVideoAvailable){
 				stageVideo = stage.stageVideos[0];
 				stageVideo.addEventListener(StageVideoEvent.RENDER_STATE, onStageVideoRenderState);
 				stageVideo.attachNetStream(ns);
 			}
-			
+		}
+		
+		// Playing a video causes the 2D stage to behave normally again - non-opaque
+		private function onPlayVideo(ev:Event): void
+		{
+			button3.visible = false;
+			ev.stopImmediatePropagation();
+			stage3D.visible = false;
+			var url:String = File.applicationDirectory.resolvePath("WwVideoClip_960x720.mp4").url;
+			if (ns) ns.play(url);
+		}
+		
+		// Disposing the NetStream DOES cause the 2D stage to become opaque
+		private function onDisposeNetStream(ev:Event): void
+		{
+			button1.visible = true;
+			button2.visible = true;
+			button3.visible = true;
+			stage3D.visible = true;
+			ev.stopImmediatePropagation();
+			// On devices, Stage2D turns opaque/black when NetStream is disposed (2nd click)
+			if (ns) ns.dispose();
 		}
 		
 		private function onStageVideoRenderState(e:StageVideoEvent):void{
