@@ -26,6 +26,8 @@ package
 	 *   Stage2D turns opaque/black when NetStream is attached or disposed
 	 * Tap any blue circle to toggle Stage3D visibility on and off
 	 *   The blue circles should overlay transparently on the Stage3D scene (AIR logo)
+	 *   Tapping a blue circle removes it from the display list
+	 *   Removing a whole row/column of blue circles reveals the Stage3D beneath the 2D stage
 	 * Tap the green buttons from left to right to see the issue
 	 * Button1: Instantiates the NetStream - so far, so good
 	 * Button2: Attaches the NetStream to StageVideo - 2D stage goes opaque
